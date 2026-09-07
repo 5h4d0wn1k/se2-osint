@@ -1,24 +1,59 @@
 #!/usr/bin/env python3
 """
-SE2 — OSINT Aggregator
-Username enumeration, email harvesting, social media profiling, data correlation
+SE2 — OSINT Aggregator (lab-sealed)
+Username enumeration, email analysis, profiling, correlation.
+
+ANTI-ABUSE: lab-mode ON. Every module requires an explicit lab-root; live HTTP
+enumeration is DISABLED by default (returns fixture results); emails outside
+example.* are refused; reports only ever contain synthetic data.
 """
 
 import urllib.request
 import urllib.parse
+import urllib.error
 import json
 import os
 import re
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Optional, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 
+WATERMARK = "SIMULATION / AUTHORIZED TRAINING ONLY"
+
+
+class OsintGuardError(Exception):
+    pass
+
+
+class LabGuard:
+    def __init__(self, lab_root=None, target_org="OWN", online=False):
+        if not lab_root:
+            raise OsintGuardError("Explicit --lab-root is required.")
+        if target_org != "OWN":
+            raise OsintGuardError("Only --target-org OWN is permitted in lab mode.")
+        self.lab_root = Path(lab_root)
+        self.reports = self.lab_root / "reports"
+        self.reports.mkdir(parents=True, exist_ok=True)
+        self.online = online
+
+    def refuse_real_email(self, email):
+        if "@" not in email or email.split("@")[1].lower() not in (
+                "example.com", "example.org", "example.net"):
+            raise OsintGuardError(f"Refusing email '{email}': only example.* allowed.")
+        return email
+
+    def watermark(self, text):
+        return f"[{WATERMARK}]\n{text}"
+
 
 class UsernameEnumerator:
-    """Enumerate usernames across platforms"""
-    
-    def __init__(self):
+    """Enumerate usernames (SIMULATED by default; live requires guard + online-lab)"""
+
+    def __init__(self, lab_root=None, target_org="OWN", online=False):
+        self.guard = LabGuard(lab_root, target_org, online=online)
         self.platforms = {
             "github": "https://github.com/{username}",
             "twitter": "https://twitter.com/{username}",
@@ -36,7 +71,20 @@ class UsernameEnumerator:
         self.results = {}
     
     def check_username(self, username: str, platform: str, url: str) -> Dict:
-        """Check if username exists on platform"""
+        """Check if username exists on platform (SIMULATION when not online)"""
+        if not self.guard.online:
+            fake = {"github": 200, "twitter": 404, "reddit": 200, "linkedin": 404,
+                    "instagram": 200, "tiktok": 404, "youtube": 200, "medium": 404,
+                    "keybase": 200, "hackerone": 404, "tryhackme": 200, "hackthebox": 404}
+            code = fake.get(platform, 404)
+            return {
+                "platform": platform,
+                "url": url.format(username=username),
+                "status": "found" if code == 200 else "not_found",
+                "code": code,
+                "mode": "fixture",
+                "watermark": WATERMARK,
+            }
         try:
             full_url = url.format(username=username)
             req = urllib.request.Request(
@@ -88,7 +136,8 @@ class UsernameEnumerator:
 class EmailHarvester:
     """Harvest emails from various sources"""
     
-    def __init__(self):
+    def __init__(self, lab_root=None, target_org="OWN", online=False):
+        self.guard = LabGuard(lab_root, target_org, online=online)
         self.email_pattern = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
         self.harvested_emails = set()
     
@@ -97,7 +146,8 @@ class EmailHarvester:
         return set(self.email_pattern.findall(text))
     
     def search_email(self, email: str) -> Dict:
-        """Search for email information"""
+        """Search for email information (synthetic only; must be example.*)"""
+        self.guard.refuse_real_email(email)
         result = {
             "email": email,
             "hash": hashlib.md5(email.encode()).hexdigest(),
@@ -262,9 +312,9 @@ class DataCorrelator:
 class OSINTAggregator:
     """Main OSINT aggregation system"""
     
-    def __init__(self):
-        self.username_enum = UsernameEnumerator()
-        self.email_harvester = EmailHarvester()
+    def __init__(self, lab_root=None, target_org="OWN", online=False):
+        self.username_enum = UsernameEnumerator(lab_root, target_org, online)
+        self.email_harvester = EmailHarvester(lab_root, target_org, online)
         self.profiler = SocialMediaProfiler()
         self.correlator = DataCorrelator()
         self.results = {}
@@ -325,39 +375,42 @@ class OSINTAggregator:
 
 
 if __name__ == "__main__":
-    print("SE2 — OSINT Aggregator")
+    import argparse
+    ap = argparse.ArgumentParser(description="SE2 OSINT Aggregator (lab-sealed).")
+    ap.add_argument("--lab-root", required=True)
+    ap.add_argument("--target-org", default="OWN")
+    ap.add_argument("--online-lab", action="store_true")
+    argv = ap.parse_args(sys.argv[1:])
+    guard = LabGuard(argv.lab_root, argv.target_org, online=argv.online_lab)
+
+    print(f"SE2 — OSINT Aggregator [{WATERMARK}]")
     print("=" * 40)
-    
-    aggregator = OSINTAggregator()
-    
-    # Example: Investigate a target
-    print("\n[*] Running sample investigation...")
-    
+
+    aggregator = OSINTAggregator(argv.lab_root, argv.target_org, argv.online_lab)
+
     target = {
-        "username": "testuser",
-        "email": "test@example.com"
+        "username": "ada.lovelace",
+        "email": guard.refuse_real_email("ada.lovelace@example.com")
     }
-    
+
     result = aggregator.investigate_target(target)
-    
-    # Show results
-    print(f"\nUsername enumeration for '{target['username']}':")
+
+    print(f"\nUsername enumeration for '{target['username']}' (SIMULATED):")
     if result["username_results"]:
-        print(f"  Found on: {len(result['username_results']['found'])} platforms")
-        print(f"  Not found: {len(result['username_results']['not_found'])} platforms")
-    
+        print(f"  Found on: {len(result['username_results']['found'])} platforms (fixture)")
+        print(f"  Not found: {len(result['username_results']['not_found'])} platforms (fixture)")
+
     print(f"\nEmail analysis for '{target['email']}':")
     if result["email_results"]:
         print(f"  Domain: {result['email_results']['domain']}")
-    
-    # Username analysis
-    print("\nUsername analysis:")
+
     analysis = aggregator.profiler.analyze_username(target["username"])
+    print("\nUsername analysis:")
     print(f"  Length: {analysis['length']}")
     print(f"  Has numbers: {analysis['has_numbers']}")
     print(f"  Common patterns: {analysis['common_patterns']}")
-    
-    print("\nUsage:")
-    print("  aggregator = OSINTAggregator()")
-    print("  result = aggregator.investigate_target({'username': 'user', 'email': 'user@example.com'})")
-    print("  aggregator.export_results('results.json')")
+
+    out = guard.reports / "aggregator_summary.json"
+    out.write_text(json.dumps({**aggregator.get_summary(), "watermark": WATERMARK}, indent=2))
+    print(f"\nSummary written: {out}")
+    print("Note: fixture mode (offline). Add --online-lab only for your OWN example.* lab names.")

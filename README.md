@@ -1,138 +1,82 @@
-# SE2 — OSINT Aggregator
+# SE2 — OSINT Lab Framework
 
-Username enumeration, email harvesting, social media profiling, data correlation.
-
-## Overview
-
-This project implements an Open Source Intelligence (OSINT) aggregation system that:
-- Enumerates usernames across multiple platforms concurrently
-- Harvests and analyzes email addresses
-- Creates comprehensive social media profiles
-- Correlates data from multiple sources
-- Generates investigation reports
+Synthetic open-source-intelligence pipelines for **authorized training** on your own
+data. Every output uses only RFC5737 IPs, `example.com` addresses and synthetic
+personas; no live scraping runs in tests or the default offline mode. Live socket
+resolvers are gated behind `--online-lab` and restricted to your own `.example`
+/ `.test` lab names.
 
 ## Features
 
-- **Username Enumeration**: Check 12+ platforms for username existence
-- **Email Harvesting**: Extract emails from files and validate format
-- **Social Media Profiling**: Build comprehensive target profiles
-- **Data Correlation**: Find connections between different data points
-- **Concurrent Processing**: Fast multi-threaded platform checks
+- **DNS resolver pipeline** — stdlib `socket`-based, fixture mode by default; live
+  path gated by `--online-lab` and restricted to lab TLDs.
+- **WHOIS client** — raw stdlib socket WHOIS query against a configurable local
+  server (127.0.0.1 in labs/tests); offline fixture demo included.
+- **Search-engine-style URL enumeration** — candidate URL generator for a synthetic
+  seed domain (`example.com`).
+- **Email harvester** — regex extraction that **refuses** anything outside
+  `example.*`.
+- **Entity graph builder** — JSON graph of personas → emails → RFC5737 IPs.
+- **Reports** — JSON written under `lab-root/reports/`, watermarked.
 
-## Installation
+## IMPORTANT: Read before use.
 
-No external dependencies required — uses Python standard library only.
+Provided for **educational and authorized security testing purposes only**.
 
-```bash
-python3 osint_aggregator.py
-```
+### Authorization Requirements
+- You MUST have explicit written permission and a scoped agreement for any
+  investigation.
+- `--target-org` is locked to `OWN`; other targets are refused in lab mode.
+- This is a **synthetic-data** framework: real emails, real domains, and non-RFC5737
+  IP addresses are refused.
+- Requests to remove these safeguards will be refused.
+
+### Anti-Abuse Safeguards
+- Every run requires an explicit `--lab-root`.
+- Offline fixtures are the default; live enumeration requires `--online-lab` **and**
+  refuses real domains.
+- All output (reports, records) carries the watermark
+  "SIMULATION / AUTHORIZED TRAINING ONLY".
+
+### Legal Framework
+- **CFAA (18 U.S.C. § 1030)**, **Wiretap Act (18 U.S.C. § 2511)**, **state computer
+  crime laws**, and **GDPR/CCPA** apply to data collection and access.
+- Harvesting from unauthorized sources is illegal.
+
+### Prohibited Use
+- Collecting or storing real personal data.
+- Probing organizations or people without authorization.
+- Using results to further an attack.
+
+### No Warranty
+Provided "AS IS" without warranty. Author accepts no liability for misuse.
+
+### Responsible Disclosure
+Report findings privately, allow remediation time, never publish raw personal data.
+
+## Live Lab Test Plan
+
+1. `python3 se2_cli.py --lab-root ./lab --demo` → exit 0, synthetic report in `./lab/reports/`.
+2. `python3 se2_cli.py --lab-root ./lab --whois-demo` → offline WHOIS fixture demo on 127.0.0.1.
+3. `python3 se2_cli.py --lab-root ./lab --enumerate-urls` → candidate URL list.
+4. `python3 osint_aggregator.py --lab-root ./lab` → legacy aggregator, fixture mode.
+5. Negative: `python3 se2_cli.py --lab-root ./lab --target-org EvilCorp` must exit non-zero.
+6. `python -m unittest discover -s tests` → 15 offline tests pass.
+
+## Metrics
+
+- Synthetic personas: 12 (seeded, deterministic).
+- DNS fixture map: 4 lab records (RFC5737 IPs only).
+- URL candidates per seed domain: 42.
+- Test count: 15 (no network calls; WHOIS uses in-process 127.0.0.1 server).
 
 ## Usage
 
-### Username Enumeration
-```python
-from osint_aggregator import UsernameEnumerator
-
-enumerator = UsernameEnumerator()
-results = enumerator.enumerate("target_username")
-print(f"Found on: {len(results['found'])} platforms")
+```bash
+python3 se2_cli.py --lab-root ./lab --demo
+python3 se2_cli.py --lab-root ./lab --whois-demo
+python3 se2_cli.py --lab-root ./lab --online-lab   # only your OWN .example lab names
 ```
-
-### Email Investigation
-```python
-from osint_aggregator import EmailHarvester
-
-harvester = EmailHarvester()
-info = harvester.search_email("target@example.com")
-print(f"Domain: {info['domain']}")
-```
-
-### Full Investigation
-```python
-from osint_aggregator import OSINTAggregator
-
-aggregator = OSINTAggregator()
-result = aggregator.investigate_target({
-    "username": "target_user",
-    "email": "target@example.com"
-})
-aggregator.export_results("results.json")
-```
-
-### Username Analysis
-```python
-from osint_aggregator import SocialMediaProfiler
-
-profiler = SocialMediaProfiler()
-analysis = profiler.analyze_username("john_doe_123")
-print(f"Patterns: {analysis['common_patterns']}")
-```
-
-## Example Output
-
-```
-SE2 — OSINT Aggregator
-========================================
-
-[*] Running sample investigation...
-
-Username enumeration for 'testuser':
-  Found on: 3 platforms
-  Not found: 9 platforms
-
-Email analysis for 'test@example.com':
-  Domain: example.com
-
-Username analysis:
-  Length: 8
-  Has numbers: True
-  Common patterns: ['name_number']
-```
-
-## Supported Platforms
-
-- GitHub, Twitter, Reddit, LinkedIn
-- Instagram, TikTok, YouTube
-- Medium, Keybase, HackerOne
-- TryHackMe, HackTheBox
-
-## Legal Disclaimer
-
-**IMPORTANT: Read before use.**
-
-This project is provided for **educational and authorized security testing purposes only**. 
-
-### Authorization Requirements
-- You MUST have explicit written permission from the network owner before using this tool
-- Unauthorized interception of network communications is illegal under federal and state laws
-- This tool should ONLY be used on networks you own or have written authorization to test
-
-### Legal Framework
-- **Computer Fraud and Abuse Act (CFAA)**: Unauthorized access to computer systems is a federal crime
-- **Wiretap Act (18 U.S.C. § 2511)**: Interception of electronic communications without consent is illegal
-- **State Laws**: Many states have additional computer crime and wiretapping statutes
-- **GDPR/CCPA**: Data collection may be subject to privacy regulations
-
-### Acceptable Use
-- Testing security of your own networks
-- Authorized penetration testing with written scope
-- Academic research in controlled lab environments
-- Security education and training
-
-### Prohibited Use
-- Intercepting communications on networks you do not own
-- Attacking infrastructure without authorization
-- Any activity that violates applicable laws or regulations
-- Commercial use without proper licensing
-
-### No Warranty
-This software is provided "AS IS" without warranty of any kind. The author is not responsible for any misuse or damage caused by this software.
-
-### Responsible Disclosure
-If you discover vulnerabilities using this tool, follow responsible disclosure practices:
-1. Report to the vendor/owner privately
-2. Allow reasonable time for remediation
-3. Do not exploit beyond proof of concept
 
 ## License
 
