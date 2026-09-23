@@ -5,6 +5,9 @@
 > [SCOPE.md](SCOPE.md) before use. Use at your own risk; **AS IS**, no warranty.
 # SE2 — OSINT Lab Framework
 
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
+
 Synthetic open-source-intelligence pipelines for **authorized training** on your own
 data. Every output uses only RFC5737 IPs, `example.com` addresses and synthetic
 personas; no live scraping runs in tests or the default offline mode. Live socket
@@ -85,4 +88,14 @@ python3 se2_cli.py --lab-root ./lab --online-lab   # only your OWN .example lab 
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE). Educational and authorized training use only.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+Report security issues via [SECURITY.md](SECURITY.md).
+
+## Documentation
+
+- [ETHICS.md](ETHICS.md) — usage policy
+- [SCOPE.md](SCOPE.md) — authorized testing scope
